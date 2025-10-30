@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 from typing import List
+from fake_useragent import UserAgent
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -9,13 +10,19 @@ from bs4 import BeautifulSoup
 class ArticleData:
     title: str
     views: str
-    URL: str
-    text: str = ""
+    url: str
 
 
 async def http_client(link):
     async with aiohttp.ClientSession() as session:
-        async with session.get(link) as response:
+        async with session.get(
+                link,
+                headers = {
+                    'User-Agent': UserAgent().google,
+                }
+        ) as response:
+            response.raise_for_status()
+
             html = await response.text()
             soup = BeautifulSoup(html, "lxml")
 
@@ -33,7 +40,7 @@ async def http_client(link):
                 article_obj = ArticleData(
                     title=title,
                     views=views,
-                    URL=url
+                    url='https://habr.com' + url
                 )
                 articles_data.append(article_obj)
 
@@ -42,10 +49,15 @@ async def http_client(link):
 
 async def main():
     link = "https://habr.com/ru/articles/top/daily/"
-    articles = await http_client(link)
 
-    for index, article in enumerate(articles, 1):
-        print(f"{index}. {article.title} | Просмотры: {article.views}")
+    try:
+        articles = await http_client(link)
+        for index, article in enumerate(articles, 1):
+            print(f"{index}. {article.title} | Просмотры: {article.views} | {article.url}")
+    except aiohttp.ClientError as e:
+        print(f"Ошибка сети: {e}")
+    except Exception as e:
+        print(f"Ошибка парсинга: {e}")
 
 
 if __name__ == "__main__":
