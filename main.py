@@ -1,16 +1,52 @@
-# This is a sample Python script.
+import asyncio
+from dataclasses import dataclass
+from typing import List
 
-# Press Ctrl+F5 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import aiohttp
+from bs4 import BeautifulSoup
+
+@dataclass
+class ArticleData:
+    title: str
+    views: str
+    URL: str
+    text: str = ""
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press F9 to toggle the breakpoint.
+async def http_client(link):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(link) as response:
+            html = await response.text()
+            soup = BeautifulSoup(html, "lxml")
+
+            articles = soup.find_all("article", class_="tm-articles-list__item")
+            articles_data: List[ArticleData] = []
+
+            for article in articles:
+                title_element = article.find("a", class_="tm-title__link")
+                views_element = article.find("span", class_="tm-icon-counter__value")
+
+                title = title_element.get_text(strip=True) if title_element else "Нет заголовка"
+                views = views_element.get_text(strip=True) if views_element else "N/A"
+                url = title_element.get('href') if title_element else ""
+
+                article_obj = ArticleData(
+                    title=title,
+                    views=views,
+                    URL=url
+                )
+                articles_data.append(article_obj)
+
+            return articles_data
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+async def main():
+    link = "https://habr.com/ru/articles/top/daily/"
+    articles = await http_client(link)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    for index, article in enumerate(articles, 1):
+        print(f"{index}. {article.title} | Просмотры: {article.views}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
